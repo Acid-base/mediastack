@@ -1,0 +1,158 @@
+services:
+     # Gluetun is our VPN, so you can download torrents safely
+  gluetun:
+    image: qmcgaw/gluetun:v3
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - 8888:8888/tcp # HTTP proxy
+      - 8388:8388/tcp # Shadowsocks
+      - 8388:8388/udp # Shadowsocks
+      - 8080:8080/tcp # gluetun
+    volumes:
+      - /opt/yams/config/gluetun:/gluetun  # Single, correct volume mount
+    environment:
+      - VPN_SERVICE_PROVIDER=custom
+      - VPN_TYPE=openvpn
+      - OPENVPN_CUSTOM_CONFIG=/gluetun/riseup-ovpn.conf  # Added this line
+      - OPENVPN_CIPHERS=AES-256-GCM
+      - HTTPPROXY=on  # Enable HTTP proxy
+      - SHADOWSOCKS=on  # Enable Shadowsocks
+# Jellyfin Media Server
+  jellyfin:
+    image: lscr.io/linuxserver/${MEDIA_SERVICE}
+    container_name: ${MEDIA_SERVICE}
+    #network_mode: host # plex
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - VERSION=docker
+    volumes:
+      - /srv/media/movies:/data/movies
+      - /srv/media/tvshows:/data/tvshows
+      - /opt/yams/config/${MEDIA_SERVICE}:/config
+    ports: # plex
+      - 8096:8096 # plex
+  # qBittorrent - Connected to VPN
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:4.6.0
+    container_name: qbittorrent
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+ #     - WEBUI_PORT=8080
+    volumes:
+      - /srv/media/downloads:/downloads
+      - /opt/yams/config/qbittorrent:/config
+    restart: unless-stopped
+    # ports: # Important: Remove or comment out to prevent direct exposure 
+    #   - 8080:8080 
+    network_mode: "service:gluetun"
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=America/Denver
+    ports:
+      - 5055:5055
+    volumes:
+      - /opt/yams/config/jellyseerr:/app/config
+    restart: unless-stopped
+
+  # Sonarr 
+  sonarr:
+    image: lscr.io/linuxserver/sonarr
+    container_name: sonarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - /srv/media/tvshows:/tv
+      - /srv/media/downloads:/downloads
+      - /opt/yams/config/sonarr:/config
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+
+  # Radarr
+  radarr:
+    image: lscr.io/linuxserver/radarr
+    container_name: radarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - /srv/media/movies:/movies
+      - /srv/media/downloads:/downloads
+      - /opt/yams/config/radarr:/config
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+
+  # Lidarr
+  lidarr:
+    image: lscr.io/linuxserver/lidarr
+    container_name: lidarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - /srv/media/music:/music
+      - /srv/media/downloads:/downloads
+      - /opt/yams/config/lidarr:/config
+    ports:
+      - 8686:8686
+    restart: unless-stopped
+
+ # Readarr
+  readarr:
+    image: lscr.io/linuxserver/readarr:develop
+    container_name: readarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - /srv/media/books:/books
+      - /srv/media/downloads:/downloads
+      - /opt/yams/config/readarr:/config
+    ports:
+      - 8787:8787
+    restart: unless-stopped
+
+  # Bazarr
+  bazarr:
+    image: lscr.io/linuxserver/bazarr
+    container_name: bazarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - /srv/media/movies:/movies
+      - /srv/media/tvshows:/tv
+      - /opt/yams/config/bazarr:/config
+    ports:
+      - 6767:6767
+    restart: unless-stopped
+
+  # Prowlarr
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - /opt/yams/config/prowlarr:/config
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+  flemmarr:
+    container_name: flemmarr
+    image: pierremesure/flemmarr
+    volumes:
+      - "/opt/yams/config/flemmarr:/config/flemmarr"
